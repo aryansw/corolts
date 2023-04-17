@@ -15,8 +15,8 @@ module COROLTS-SYNTAX
   syntax Param ::= Id ":" Type
   syntax Params ::= List{Param,","}
 
-  syntax Stmt ::= "let" Exps ":" Type ";"
-                | "let" Id ":" Type "=" Exp ";"           [macro]
+  syntax Stmt ::= "let" Id ":" Type ";"
+                | "let" Id ":" Type "=" Exp ";"          [strict]
                 | "fn" Id "(" Params ")" "->" Type Block
                 | "fn" Id "(" Params ")" Block            [macro]
   
@@ -25,6 +25,7 @@ module COROLTS-SYNTAX
                | "(" Exp ")"             [bracket]
                | "++" Exp
                > Exp "[" Exps "]"        [strict]
+               > "new" Type "[" Exps "]"       [strict]
                > Exp "(" Exps ")"        [strict]
                | "-" Exp                 [strict]
                | "sizeOf" "(" Exp ")"    [strict]
@@ -48,6 +49,7 @@ module COROLTS-SYNTAX
                  Exp "&&" Exp            [strict, left]
                | Exp "||" Exp            [strict, left]
                > Exp "=" Exp             [strict(2), right]
+
   syntax Exps ::= List{Exp,","}          [strict, klabel(exps)]
 
   // Statements
@@ -71,7 +73,6 @@ module COROLTS-SYNTAX
   rule for(Start Cond; Step) {S:Stmt} => {Start while(Cond){S Step;}}
   rule for(Start Cond; Step) {} => {Start while(Cond){Step;}}
   rule fn Id(Params) B:Block => fn Id(Params) -> void B
-  rule let E1:Exp, Es:Exps : T:Type; => let E1 : T; let Es : T;         [anywhere]
   rule let X:Id : T:Type = E; => let X : T; X = E;                                  [anywhere]
 
 endmodule

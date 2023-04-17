@@ -28,9 +28,9 @@ module COROLTS-TYPING
     requires notBool(X in keys(Rho))
   rule <k> let X:Id : T:Type ; => stmt ...</k> <tenv> Rho => Rho[X <- T] </tenv>
 
-  context let _::Exp[HOLE::Exps] : _:Type;
-  rule let E:Exp[int,Ts:Types] : T:Type; => let E[Ts] : T[];  [structural]
-  rule let E:Exp[.Types] : T:Type; => let E : T;          [structural]
+
+  rule new T:Type[int, Ts:Types] => new (T[])[Ts]   [structural]
+  rule new T:Type[.Types] => T                   [structural]
 
   rule <task> <k> fn F:Id (Ps:Params) -> T:Type S => let F : getTypes(Ps)->T; ...</k> </task>
        (.Bag => <task>
