@@ -11,13 +11,8 @@ kompile/.type: corolts-typing.k $(common)
 	kompile corolts-typing.k --syntax-module COROLTS-SYNTAX -d kompile/type
 	echo "kompiled" > kompile/.type
 
-exec: kompile/.exec
-	krun "tests/$(file)" -d kompile/exec
-
-type: kompile/.type
-	krun "tests/$(file)" -d kompile/type
-
-run: kompile/.exec kompile/.type type exec
+%.ct: tests/%.ct kompile/.type
+	krun $< -d kompile/type
 
 clean: 
 	rm -rf kompile/*

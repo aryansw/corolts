@@ -6,6 +6,9 @@ module COROLTS-SYNTAX
   // Types
   syntax Type ::= "void" | "int" | "bool" | "string"
                 | Type "[" "]"
+                | "mut" Type               [strict]
+                | "&" Type                 [strict]
+                | "&mut" Type              [strict]
                 | "(" Type ")"             [bracket]
                 > Types "->" Type
 
@@ -22,6 +25,11 @@ module COROLTS-SYNTAX
   
   // Expressions
   syntax Exp ::= Int | Bool | String | Id
+               // New Rust syntax
+               | "&" Exp                 [strict]
+               | "&mut" Exp              [strict]
+               | "*" Exp                 [strict]
+               // End of Rust syntax
                | "(" Exp ")"             [bracket]
                | "++" Exp
                > Exp "[" Exps "]"        [strict]
@@ -58,7 +66,7 @@ module COROLTS-SYNTAX
 
   syntax Stmt ::= Block
                 | Exp ";"                                  [strict]
-                | "if" Exp Block "else" Block      [avoid, strict]
+                | "if" Exp Block "else" Block      [avoid, strict(1)]
                 | "if" Exp Block                   [macro]
                 | "while" Exp Block                [strict]
                 | "for" "(" Stmt Exp ";" Exp ")" Block     [macro]

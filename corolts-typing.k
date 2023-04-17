@@ -6,11 +6,15 @@ module COROLTS-TYPING
 
   // Special evaluation rules for some statements
 
+  context <k> if S1:Exp HOLE:Block else _:Block ...</k> requires isKResult(S1)
+  context <k> if _:Exp S2:Block else HOLE:Block ...</k> requires isKResult(S2)
+  context <k> if HOLE:Exp _:Block else _:Block ...</k>
+
   context <k> S1:Stmt HOLE:Stmt ...</k> requires isKResult(S1)
   context <k> HOLE:Stmt _:Stmt ...</k>
 
-  context <k> new T:Type[E1:Exp, HOLE:Exps] ...</k> requires isKResult(E1)
-  context <k> new T:Type[HOLE:Exp, Es:Exps] ...</k>
+  context <k> new _:Type[E1:Exp, HOLE:Exps] ...</k> requires isKResult(E1)
+  context <k> new _:Type[HOLE:Exp, _:Exps] ...</k>
 
 
   syntax Exp ::= Type
