@@ -46,7 +46,7 @@ module COROLTS-EXECUTE
 
 
   syntax KItem ::= "execute"  
-  rule <k> execute => main(.Exps); </k>
+  rule <k> execute => main(.Vals); </k>
        <env> Env </env>
        <genv> .Map => Env </genv>  [structural]
 
@@ -81,21 +81,25 @@ module COROLTS-EXECUTE
   rule false || E => E
 
   context new _:Type[HOLE]
+  
+  rule <k> new _:Type[.Vals] => undefined ...</k>
+
   rule <k> new _:Type[N:Int] => array(L, N) ...</k>
        <store>... .Map => (L +Int 1) ... (L +Int N) |-> undefined ...</store>
        <nextLoc> L => L +Int N </nextLoc> 
+    requires N >Int 0
 
   rule <k> new T:Type[N1:Int, N2:Vals] => array(L, N1) ...</k>
-       <store>... .Map => (L +Int 1) ... (L +Int N1) |-> new T[N2] ...</store>
+       <store>... .Map => (L) ... (L +Int N1 -Int 1) |-> new T[N2] ...</store>
        <nextLoc> L => L +Int N1 </nextLoc> 
     requires N1 >Int 0
 
   // Array lookups
   rule V:Val[N1:Int, N2:Int, Vs:Vals] => V[N1][N2, Vs]
-    [structural]
+    [structural, anywhere]
 
   rule array(L,_)[N:Int] => lookup(L +Int N)
-    [structural]
+    [structural, anywhere]
 
   rule sizeOf(array(_,N)) => N
 
@@ -126,8 +130,9 @@ module COROLTS-EXECUTE
 
   // Reassignment
   context (HOLE => lvalue(HOLE)) = _
-  rule <k> loc(L) = V:Val => V ...</k> <store>... L |-> (_ => V) ...</store>
-    [assignment]
+
+  rule <k> loc(L) = V:Val => V ...</k> 
+        <store>... L |-> (_ => V) ...</store> [assignment]
 
   // Scoping (restore's environment after call)
   rule {} => .  [structural]
@@ -147,7 +152,7 @@ module COROLTS-EXECUTE
 
   // Helper functions
   syntax Stmt ::= mkDecls(Params,Vals)  [function]
-  rule mkDecls((X:Id : T:Type, Xs:Params), (V:Val, Vs:Vals)) => let X: T = V; mkDecls(Xs,Vs)
+  rule mkDecls((X:Id : T:Type, Xs:Params), (V:Val, Vs:Vals)) => let X : T = V; mkDecls(Xs,Vs)
   rule mkDecls(.Params,.Vals) => {}
 
   syntax Exp ::= lookup(Int)
@@ -163,6 +168,7 @@ module COROLTS-EXECUTE
 
   rule <k> lvalue(X:Id => loc(L)) ...</k> <env>... X |-> L:Int ...</env>
     [structural]
+
 
   context lvalue(_::Exp[HOLE::Exps])
   context lvalue(HOLE::Exp[_::Exps])

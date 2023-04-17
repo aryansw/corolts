@@ -16,16 +16,16 @@ module COROLTS-SYNTAX
   syntax Params ::= List{Param,","}
 
   syntax Stmt ::= "let" Id ":" Type ";"
-                | "let" Id ":" Type "=" Exp ";"          [strict]
+                | "let" Id ":" Type "=" Exp ";"          
                 | "fn" Id "(" Params ")" "->" Type Block
-                | "fn" Id "(" Params ")" Block            [macro]
+                | "fn" Id "(" Params ")" Block           
   
   // Expressions
   syntax Exp ::= Int | Bool | String | Id
                | "(" Exp ")"             [bracket]
                | "++" Exp
                > Exp "[" Exps "]"        [strict]
-               > "new" Type "[" Exps "]"       [strict]
+               > "new" Type "[" Exps "]" 
                > Exp "(" Exps ")"        [strict]
                | "-" Exp                 [strict]
                | "sizeOf" "(" Exp ")"    [strict]
@@ -66,10 +66,10 @@ module COROLTS-SYNTAX
                 | "return" ";"
                 | "println!" "(" Exps ")" ";"                 [strict]
   
-  syntax Stmt ::= Stmt Stmt                             [seqstrict, right]
+  syntax Stmt ::= Stmt Stmt                             [right]
 
   // Expanding Macros
-  rule if (E) S => if (E) S else {}
+  rule if E S => if E S else {}
   rule for(Start Cond; Step) {S:Stmt} => {Start while(Cond){S Step;}}
   rule for(Start Cond; Step) {} => {Start while(Cond){Step;}}
   rule fn Id(Params) B:Block => fn Id(Params) -> void B

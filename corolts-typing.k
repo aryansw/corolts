@@ -4,6 +4,15 @@ module COROLTS-TYPING
   imports COROLTS-SYNTAX
   imports DOMAINS
 
+  // Special evaluation rules for some statements
+
+  context <k> S1:Stmt HOLE:Stmt ...</k> requires isKResult(S1)
+  context <k> HOLE:Stmt _:Stmt ...</k>
+
+  context <k> new T:Type[E1:Exp, HOLE:Exps] ...</k> requires isKResult(E1)
+  context <k> new T:Type[HOLE:Exp, Es:Exps] ...</k>
+
+
   syntax Exp ::= Type
   syntax Exps ::= Types
   syntax BlockOrStmtType ::= "block" | "stmt"
