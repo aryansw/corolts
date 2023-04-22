@@ -5,8 +5,8 @@ module COROLTS-EXECUTE
   imports DOMAINS
 
   syntax Val ::= Int | Bool | String
-              |  array(Int, Int) // Location to first element and size
-              |  func(Params, Block) // Parameters and body
+              |  array(Type, Int, Int) // Location to first element and size
+              |  func(Type, Params, Block) // Parameters and body
 
   syntax Vals ::= List{Val,","} [klabel(exps)]
 
@@ -21,32 +21,64 @@ module COROLTS-EXECUTE
                   <k color="green"> $PGM:Stmt ~> execute </k>
                   <control color="cyan">
                     <fstack color="blue"> .List </fstack>
+                    <returnType color="LimeGreen"> void </returnType>
                   </control>
                   <env color="violet"> .Map </env>
                   <genv color="pink"> .Map </genv>
                   <store color="white"> .Map </store>
+                  <nextLoc color="gray"> 0 </nextLoc>
+                  // Rust based semantics
+                  <mutType color="orange"> .Map </mutType>
+                  <borrow color="yellow"> .Map </borrow>
+                  <ref color="magenta"> .Map </ref>
+                  <refType color="brown"> .Map </refType>
+                  <moved color="purple"> .Map </moved>
                   <input color="magenta" stream="stdin"> .List </input>
                   <output color="brown" stream="stdout"> .List </output>
-                  <nextLoc color="gray"> 0 </nextLoc>
                 </T>
   
   syntax KItem ::= "undefined"
 
   // Variable Declarations
-  rule <k> let X:Id : _; => . ...</k>
+  rule <k> let X:Id : T:Type; => . ...</k>
        <env> Env => Env[X <- L] </env>
        <store>... .Map => L |-> undefined ...</store>
+       <typeEnv>... .Map =>  L |-> T ...</typeEnv>
+       <mutType>... .Map => L |-> false ...</mutType>
+       <borrow>... .Map => L |-> undefined ...</borrow>
+       <ref>... .Map => L |-> undefined ...</ref>
+       <refType>... .Map => L |-> undefined ...</refType>
+       <moved>... .Map => L |-> false ...</moved>
        <nextLoc> L => L +Int 1 </nextLoc>
 
+  rule <k> let X:Id : T:Type; => . ...</k>
+       <env> Env => Env[X <- L] </env>
+       <store>... .Map => L |-> undefined ...</store>
+       <typeEnv>... .Map =>  L |-> T ...</typeEnv>
+       <mutType>... .Map => L |-> true ...</mutType>
+       <borrow>... .Map => L |-> undefined ...</borrow>
+       <ref>... .Map => L |-> undefined ...</ref>
+       <refType>... .Map => L |-> undefined ...</refType>
+       <moved>... .Map => L |-> false ...</moved>
+       <nextLoc> L => L +Int 1 </nextLoc>
+
+  // Array declarations
+  context new _:Type[HOLE]
+  
+  rule <k> new T:Type[N:Int] => array(T, L, N) ...</k>
+       <store>... .Map => (L +Int 1) ... (L +Int N) |-> undefined ...</store>
+       <nextLoc> L => L +Int N </nextLoc> 
+    requires N >Int 0
+
   // Function Declarations
-  rule <k> fn F:Id(Xs:Params) -> _ B => . ...</k>
+  rule <k> fn F:Id(Xs:Params) -> T:Type B => . ...</k>
        <env> Env => Env[F <- L] </env>
-       <store>... .Map => L |-> func(Xs, B) ...</store>
+       <store>... .Map => L |-> func(T, Xs, B) ...</store>
        <nextLoc> L => L +Int 1 </nextLoc>
 
 
   syntax KItem ::= "execute"  
-  rule <k> execute => main(.Vals); </k>
+  rule <k> execute => main(.Exps); </k>
        <env> Env </env>
        <genv> .Map => Env </genv>  [structural]
 
@@ -80,36 +112,23 @@ module COROLTS-EXECUTE
   rule true  || _ => true
   rule false || E => E
 
-  context new _:Type[HOLE]
-  
-  rule <k> new _:Type[.Vals] => undefined ...</k>
-
-  rule <k> new _:Type[N:Int] => array(L, N) ...</k>
-       <store>... .Map => (L +Int 1) ... (L +Int N) |-> undefined ...</store>
-       <nextLoc> L => L +Int N </nextLoc> 
-    requires N >Int 0
-
-  rule <k> new T:Type[N1:Int, N2:Vals] => array(L, N1) ...</k>
-       <store>... .Map => (L) ... (L +Int N1 -Int 1) |-> new T[N2] ...</store>
-       <nextLoc> L => L +Int N1 </nextLoc> 
-    requires N1 >Int 0
-
   // Array lookups
   rule V:Val[N1:Int, N2:Int, Vs:Vals] => V[N1][N2, Vs]
     [structural, anywhere]
 
-  rule array(L,_)[N:Int] => lookup(L +Int N)
-    [structural, anywhere]
+  rule array(_:Type, L:Int, M:Int)[N:Int] => lookup(L +Int N)
+    when N >=Int 0 andBool N <Int M [structural, anywhere]
 
-  rule sizeOf(array(_,N)) => N
+  rule sizeOf(array(_,_,N)) => N
 
   // Function Calls
-  syntax KItem ::=  (Map,K,ControlCellFragment)
+  syntax KItem ::= (Type,Map,K,ControlCellFragment)
 
   // Build function call, switch over evaluation of arguments
-  rule <k> func(Xs,S)(Vs:Vals) ~> K => mkDecls(Xs,Vs) S return; </k>
+  rule <k> func(T,Xs,S)(Vs:Vals) ~> K => mkDecls(Xs,Vs) S return; </k>
        <control>
-         <fstack> .List => ListItem((Env,K,C)) ...</fstack>
+         <fstack> .List => ListItem((T',Env,K,C)) ...</fstack>
+         <returnType> T' => T </returnType>
          C
        </control>
        <env> Env => GEnv </env>
@@ -118,13 +137,15 @@ module COROLTS-EXECUTE
   // On return, restore environment and give result to caller
   rule <k> return(V:Val); ~> _ => V ~> K </k>
        <control>
-         <fstack> ListItem((Env,K,C)) => .List ...</fstack>
+         <fstack> ListItem((T',Env,K,C)) => .List ...</fstack>
+         <returnType> T => T' </returnType>
          (_ => C)
        </control>
        <env> _ => Env </env>
+    when typeOf(V) ==K T
 
-  syntax Val ::= "nothing"
-  rule return; => return nothing;
+  syntax Val ::= nothing(Type)
+  rule <k> return; => return nothing(T); ...</k> <returnType> T </returnType> [structural]
 
   rule <k> read() => I ...</k> <input> ListItem(I:Int) => .List ...</input>  [read]
 
@@ -132,7 +153,10 @@ module COROLTS-EXECUTE
   context (HOLE => lvalue(HOLE)) = _
 
   rule <k> loc(L) = V:Val => V ...</k> 
-        <store>... L |-> (_ => V) ...</store> [assignment]
+       <typeEnv>... .Map => L |-> T ...</typeEnv>
+       <mutType>... .Map => L |-> true ...</mutType>
+       <store>... .Map => L |-> (_ => V) ...</store> 
+       when T ==K typeOf(V') [assignment]
 
   // Scoping (restore's environment after call)
   rule {} => .  [structural]
@@ -180,4 +204,21 @@ module COROLTS-EXECUTE
   rule N...M |-> _ => .Map  requires N >Int M
   rule N...M |-> K => N |-> K (N +Int 1)...M |-> K  requires N <=Int M
 
+  syntax Type ::= Type "<" Vals ">"  [function]
+  rule T:Type<_,Vs:Vals> => T[]<Vs>
+  rule T:Type<.Vals> => T
+
+  // Type of a value.
+  syntax Type ::= typeOf(K)  [function]
+  rule typeOf(_:Int) => int
+  rule typeOf(_:Bool) => bool
+  rule typeOf(_:String) => string
+  rule typeOf(array(T,_,_)) => (T[])   // () needed! K parses [] as "no tags"
+  rule typeOf(func(T,Ps,_)) => getTypes(Ps) -> T
+  rule typeOf(nothing(T)) => T
+
+  syntax Types ::= getTypes(Params)  [function]
+  rule getTypes(_:Id : T:Type) => T, .Types   // I would like to not use .Types
+  rule getTypes(_:Id : T:Type, P, Ps) => T, getTypes(P,Ps)
+  rule getTypes(.Params) => void, .Types
 endmodule

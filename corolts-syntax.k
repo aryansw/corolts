@@ -6,7 +6,6 @@ module COROLTS-SYNTAX
   // Types
   syntax Type ::= "void" | "int" | "bool" | "string"
                 | Type "[" "]"
-                | "mut" Type               [strict]
                 | "&" Type                 [strict]
                 | "&mut" Type              [strict]
                 | "(" Type ")"             [bracket]
@@ -19,13 +18,16 @@ module COROLTS-SYNTAX
   syntax Params ::= List{Param,","}
 
   syntax Stmt ::= "let" Id ":" Type ";"
-                | "let" Id ":" Type "=" Exp ";"          
+                | "let" "mut" Id ":" Type ";"
+                | "let" Id ":" Type "=" Exp ";"    
+                | "let" "mut" Id ":" Type "=" Exp ";"          
                 | "fn" Id "(" Params ")" "->" Type Block
                 | "fn" Id "(" Params ")" Block           
   
   // Expressions
   syntax Exp ::= Int | Bool | String | Id
                // New Rust syntax
+               // Borrowing
                | "&" Exp                 [strict]
                | "&mut" Exp              [strict]
                | "*" Exp                 [strict]
@@ -33,7 +35,7 @@ module COROLTS-SYNTAX
                | "(" Exp ")"             [bracket]
                | "++" Exp
                > Exp "[" Exps "]"        [strict]
-               > "new" Type "[" Exps "]" 
+               > "new" Type "[" Exp "]"  // Disallowing this for now
                > Exp "(" Exps ")"        [strict]
                | "-" Exp                 [strict]
                | "sizeOf" "(" Exp ")"    [strict]
@@ -82,5 +84,6 @@ module COROLTS-SYNTAX
   rule for(Start Cond; Step) {} => {Start while(Cond){Step;}}
   rule fn Id(Params) B:Block => fn Id(Params) -> void B
   rule let X:Id : T:Type = E; => let X : T; X = E;                                  [anywhere]
+  rule let mut X:Id : T:Type = E; => let mut X : T; X = E;                                  [anywhere]
 
 endmodule
