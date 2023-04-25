@@ -63,13 +63,6 @@ module COROLTS-EXECUTE
        <moved>... .Map => L |-> false ...</moved>
        <nextLoc> L => L +Int 1 </nextLoc>
 
-  // Array declarations
-  context new _:Type[HOLE]
-  
-  rule <k> new T:Type[N:Int] => array(T, L, N) ...</k>
-       <store>... .Map => (L) ... (L +Int N -Int 1) |-> undefined ...</store>
-       <nextLoc> L => L +Int N </nextLoc> 
-    requires N >Int 0
 
   // Function Declarations
   rule <k> fn F:Id(Xs:Params) -> T:Type B => . ...</k>
@@ -91,36 +84,6 @@ module COROLTS-EXECUTE
   context ++(HOLE => lvalue(HOLE))
   rule <k> ++loc(L) => I +Int 1 ...</k>
        <store>... L |-> (I => I +Int 1) ...</store>  [increment]
-
-  rule I1 + I2 => I1 +Int I2
-  rule Str1 + Str2 => Str1 +String Str2
-  rule I1 - I2 => I1 -Int I2
-  rule I1 * I2 => I1 *Int I2
-  rule I1 / I2 => I1 /Int I2 requires I2 =/=K 0
-  rule I1 % I2 => I1 %Int I2 requires I2 =/=K 0
-  rule - I => 0 -Int I
-  rule I1 < I2 => I1 <Int I2
-  rule I1 <= I2 => I1 <=Int I2
-  rule I1 > I2 => I1 >Int I2
-  rule I1 >= I2 => I1 >=Int I2
-
-  rule V1:Val == V2:Val => V1 ==K V2
-  rule V1:Val != V2:Val => V1 =/=K V2
-
-  rule ! T => notBool(T)
-  rule true  && E => E
-  rule false && _ => false
-  rule true  || _ => true
-  rule false || E => E
-
-  // Array lookups
-  rule V:Val[N1:Int, N2:Int, Vs:Vals] => V[N1][N2, Vs]
-    [structural, anywhere]
-
-  rule array(_:Type, L:Int, M:Int)[N:Int] => lookup(L +Int N)
-    when N >=Int 0 andBool N <Int M [structural, anywhere]
-
-  rule sizeOf(array(_,_,N)) => N
 
   // Function Calls
   syntax KItem ::= (Type,Map,K,ControlCellFragment)
@@ -172,10 +135,6 @@ module COROLTS-EXECUTE
   rule S1:Stmt S2:Stmt => S1 ~> S2  [structural]
   rule _:Val; => .
 
-  // Control Flow
-  rule if true S else _ => S
-  rule if false _ else S => S
-  rule while E S => if E {S while E S}  [structural]
 
   rule <k> println!(V:Val, Es => Es); ...</k> <output>... .List => ListItem(V) </output>
     [print]
@@ -199,7 +158,6 @@ module COROLTS-EXECUTE
 
   rule <k> lvalue(X:Id => loc(L)) ...</k> <env>... X |-> L:Int ...</env>
     [structural]
-
 
   context lvalue(_::Exp[HOLE::Exps])
   context lvalue(HOLE::Exp[_::Exps])

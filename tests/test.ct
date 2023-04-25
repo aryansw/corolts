@@ -1,7 +1,6 @@
 fn main() {
-    let x: int = 10;
-    let q: int[][] = new int[][10];
-    q[0] = new int[10];
-    q[0][0] = 10;
-    println!(q[0][0]);
+    let mut x: int = 10;
+    let y: int = 23;
+    x = x + y;
+    println!(x + y);
 }
