@@ -24,6 +24,7 @@ module COROLTS-EXECUTE
                     <returnType color="LimeGreen"> void </returnType>
                   </control>
                   <env color="violet"> .Map </env>
+                  <typeEnv color="magenta"> .Map </typeEnv>
                   <genv color="pink"> .Map </genv>
                   <store color="white"> .Map </store>
                   <nextLoc color="gray"> 0 </nextLoc>
@@ -51,7 +52,7 @@ module COROLTS-EXECUTE
        <moved>... .Map => L |-> false ...</moved>
        <nextLoc> L => L +Int 1 </nextLoc>
 
-  rule <k> let X:Id : T:Type; => . ...</k>
+  rule <k> let mut X:Id : T:Type; => . ...</k>
        <env> Env => Env[X <- L] </env>
        <store>... .Map => L |-> undefined ...</store>
        <typeEnv>... .Map =>  L |-> T ...</typeEnv>
@@ -66,7 +67,7 @@ module COROLTS-EXECUTE
   context new _:Type[HOLE]
   
   rule <k> new T:Type[N:Int] => array(T, L, N) ...</k>
-       <store>... .Map => (L +Int 1) ... (L +Int N) |-> undefined ...</store>
+       <store>... .Map => (L) ... (L +Int N -Int 1) |-> undefined ...</store>
        <nextLoc> L => L +Int N </nextLoc> 
     requires N >Int 0
 
@@ -153,10 +154,16 @@ module COROLTS-EXECUTE
   context (HOLE => lvalue(HOLE)) = _
 
   rule <k> loc(L) = V:Val => V ...</k> 
-       <typeEnv>... .Map => L |-> T ...</typeEnv>
-       <mutType>... .Map => L |-> true ...</mutType>
-       <store>... .Map => L |-> (_ => V) ...</store> 
-       when T ==K typeOf(V') [assignment]
+       <typeEnv>... L |-> T:Type ...</typeEnv>
+       <mutType>... L |-> true ...</mutType>
+       <store>... L |-> (_ => V) ...</store> 
+       when T ==K typeOf(V) [assignment]
+
+  rule <k> loc(L) = V:Val => V ...</k> 
+       <typeEnv>... L |-> T:Type ...</typeEnv>
+       <store>... L |-> (undefined => V) ...</store> 
+       when T ==K typeOf(V) [assignment]
+
 
   // Scoping (restore's environment after call)
   rule {} => .  [structural]

@@ -84,6 +84,6 @@ module COROLTS-SYNTAX
   rule for(Start Cond; Step) {} => {Start while(Cond){Step;}}
   rule fn Id(Params) B:Block => fn Id(Params) -> void B
   rule let X:Id : T:Type = E; => let X : T; X = E;                                  [anywhere]
-  rule let mut X:Id : T:Type = E; => let mut X : T; X = E;                                  [anywhere]
+  rule let mut X:Id : T:Type = E; => let mut X : T; X = E;                          [anywhere]
 
 endmodule

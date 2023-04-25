@@ -1,5 +1,5 @@
 fn main() {
-    let mut x: int = 10;
+    let x: int = 10;
     let q: int[][] = new int[][10];
     q[0] = new int[10];
     q[0][0] = 10;
