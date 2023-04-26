@@ -1,6 +1,24 @@
+fn run(x: int, q: &mut string) {
+    for (let mut i: int = 0; i < x; i = i + 1) {
+        println!(i);
+    }
+    println!("\n");
+    println!(*q);
+    *q = "Changed";
+}
+
+cr brown()(x: int, q: &mut string) -> int {
+    for (let mut i: int = 0; i < x; i = i + 1) {
+        println!(i);
+    }
+    println!("\n");
+    println!(*q);
+    *q = "Changed";
+}
+
 fn main() {
     let mut x: int = 10;
-    let y: int = 23;
-    x = x + y;
-    println!(x + y);
+    let mut q: string = "Hello World!";
+    call run(x, &mut q);
+    println!(q);
 }

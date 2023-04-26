@@ -5,11 +5,12 @@ module COROLTS-SYNTAX
 
   // Types
   syntax Type ::= "void" | "int" | "bool" | "string"
-                | Type "[" "]"
                 | "&" Type                 [strict]
                 | "&mut" Type              [strict]
                 | "(" Type ")"             [bracket]
-                > Types "->" Type
+                > "fn" Types "->" Type
+                > "cr" Types "->" Types "->" Type
+                > "coro" Types "->>" Type
 
   syntax Types ::= List{Type,","}          [klabel(exps)]
   
@@ -22,21 +23,22 @@ module COROLTS-SYNTAX
                 | "let" Id ":" Type "=" Exp ";"    
                 | "let" "mut" Id ":" Type "=" Exp ";"          
                 | "fn" Id "(" Params ")" "->" Type Block
-                | "fn" Id "(" Params ")" Block           
+                | "fn" Id "(" Params ")" Block      
+                | "cr" Id "(" Params ")" "(" Params ")" "->" Type Block    
   
   // Expressions
   syntax Exp ::= Int | Bool | String | Id
                // New Rust syntax
                // Borrowing
-               | "&" Exp                 [strict]
-               | "&mut" Exp              [strict]
+               | "&" Exp                 
+               | "&mut" Exp              
                | "*" Exp                 [strict]
                // End of Rust syntax
                | "(" Exp ")"             [bracket]
                | "++" Exp
-               > Exp "[" Exps "]"        [strict]
-               > "new" Type "[" Exp "]"  // Disallowing this for now
-               > Exp "(" Exps ")"        [strict]
+               > "call" Exp "(" Exps ")"        [strict]
+               > "start" Exp "(" Exps ")"       [strict]
+               > "yield" Exp "(" Exps ")"       [strict]
                | "-" Exp                 [strict]
                | "sizeOf" "(" Exp ")"    [strict]
                | "read" "(" ")"

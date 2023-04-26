@@ -1,6 +1,6 @@
 all: kompile/.exec kompile/.type
 
-common = corolts-syntax.k corolts-arith.k corolts-execute.k
+common = corolts-syntax.k corolts-arith.k corolts-execute.k  
 .PHONY: clean run exec type
 
 kompile/.exec: corolts.k $(common)
