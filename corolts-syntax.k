@@ -5,12 +5,12 @@ module COROLTS-SYNTAX
 
   // Types
   syntax Type ::= "void" | "int" | "bool" | "string"
-                | Type "[" "]"
-                | "mut" Type               [strict]
                 | "&" Type                 [strict]
                 | "&mut" Type              [strict]
                 | "(" Type ")"             [bracket]
-                > Types "->" Type
+                > "fn" Types "->" Type
+                > "cr" Types "->" Types "->" Type
+                > "ct" Types "->>" Type
 
   syntax Types ::= List{Type,","}          [klabel(exps)]
   
@@ -19,22 +19,25 @@ module COROLTS-SYNTAX
   syntax Params ::= List{Param,","}
 
   syntax Stmt ::= "let" Id ":" Type ";"
-                | "let" Id ":" Type "=" Exp ";"          
+                | "let" "mut" Id ":" Type ";"
+                | "let" Id ":" Type "=" Exp ";"    
+                | "let" "mut" Id ":" Type "=" Exp ";"          
                 | "fn" Id "(" Params ")" "->" Type Block
-                | "fn" Id "(" Params ")" Block           
+                | "fn" Id "(" Params ")" Block      
+                | "cr" Id "(" Params ")" "(" Params ")" "->" Type Block    
   
   // Expressions
   syntax Exp ::= Int | Bool | String | Id
                // New Rust syntax
-               | "&" Exp                 [strict]
-               | "&mut" Exp              [strict]
+               // Borrowing
+               | "&" Exp                 
+               | "&mut" Exp              
                | "*" Exp                 [strict]
                // End of Rust syntax
                | "(" Exp ")"             [bracket]
                | "++" Exp
-               > Exp "[" Exps "]"        [strict]
-               > "new" Type "[" Exps "]" 
-               > Exp "(" Exps ")"        [strict]
+               > "call" Exp "(" Exps ")"        [strict]
+               > "start" Exp "(" Exps ")"       [strict]
                | "-" Exp                 [strict]
                | "sizeOf" "(" Exp ")"    [strict]
                | "read" "(" ")"
@@ -71,6 +74,7 @@ module COROLTS-SYNTAX
                 | "while" Exp Block                [strict]
                 | "for" "(" Stmt Exp ";" Exp ")" Block     [macro]
                 | "return" Exp ";"                         [strict]
+                | "yield" Exp ";"                          [strict]
                 | "return" ";"
                 | "println!" "(" Exps ")" ";"                 [strict]
   
@@ -82,5 +86,6 @@ module COROLTS-SYNTAX
   rule for(Start Cond; Step) {} => {Start while(Cond){Step;}}
   rule fn Id(Params) B:Block => fn Id(Params) -> void B
   rule let X:Id : T:Type = E; => let X : T; X = E;                                  [anywhere]
+  rule let mut X:Id : T:Type = E; => let mut X : T; X = E;                          [anywhere]
 
 endmodule

@@ -5,8 +5,11 @@ module COROLTS-EXECUTE
   imports DOMAINS
 
   syntax Val ::= Int | Bool | String
-              |  array(Int, Int) // Location to first element and size
-              |  func(Params, Block) // Parameters and body
+              |  func(Type, Params, Block) // Parameters and body
+              |  corodef(Type, Params, Params, Block) // Coroutine definition
+              |  coro(Params, Type, Int) // Coroutine Instance (type and id)
+              |  ref(Type, Int)
+              |  mref(Type, Int)
 
   syntax Vals ::= List{Val,","} [klabel(exps)]
 
@@ -18,39 +21,68 @@ module COROLTS-EXECUTE
   syntax ControlCellFragment
 
   configuration <T color="red">
-                  <k color="green"> $PGM:Stmt ~> execute </k>
-                  <control color="cyan">
-                    <fstack color="blue"> .List </fstack>
-                  </control>
-                  <env color="violet"> .Map </env>
+                  <stacks color="orange">
+                    <stack color="yellow" multiplicity="*" type="Map">
+                         <id color="pink"> 0 </id>
+                         <k color="green"> $PGM:Stmt ~> execute </k>
+                         <control color="cyan">
+                              <fstack color="blue"> .List </fstack>
+                              <returnType color="LimeGreen"> void </returnType>
+                         </control>
+                         <env color="violet"> .Map </env>
+                    </stack>
+                  </stacks>
+                  <typeEnv color="magenta"> .Map </typeEnv>
                   <genv color="pink"> .Map </genv>
                   <store color="white"> .Map </store>
+                  <nextLoc color="gray"> 0 </nextLoc>
                   <input color="magenta" stream="stdin"> .List </input>
                   <output color="brown" stream="stdout"> .List </output>
-                  <nextLoc color="gray"> 0 </nextLoc>
+                  // Rust based semantics
+                  <alive color="orange"> .List </alive>  // is x in it's appropriate scope? 
+                  <mutable color="orange"> .Map </mutable> // let mut x = 0; is mutable, let x = 0; is immutable
+                  <borrow color="yellow"> .Map </borrow>  // is x borrowed somewhere? if so, how?
+                  <moved color="purple"> .Map </moved>    // has x been moved completely to somewhere else?
                 </T>
   
-  syntax KItem ::= "undefined"
+  syntax KItem ::= "undefined" | "mRef" | "iRef"
 
   // Variable Declarations
-  rule <k> let X:Id : _; => . ...</k>
+  rule <k> let X:Id : T:Type; => . ...</k>
        <env> Env => Env[X <- L] </env>
        <store>... .Map => L |-> undefined ...</store>
+       <typeEnv>... .Map =>  L |-> T ...</typeEnv>
+       <mutable>... .Map => L |-> false ...</mutable>
+       <borrow>... .Map => L |-> undefined ...</borrow>
+       <moved>... .Map => L |-> false ...</moved>
+       <nextLoc> L => L +Int 1 </nextLoc>
+
+  rule <k> let mut X:Id : T:Type; => . ...</k>
+       <env> Env => Env[X <- L] </env>
+       <store>... .Map => L |-> undefined ...</store>
+       <typeEnv>... .Map =>  L |-> T ...</typeEnv>
+       <mutable>... .Map => L |-> true ...</mutable>
+       <borrow>... .Map => L |-> undefined ...</borrow>
+       <moved>... .Map => L |-> false ...</moved>
        <nextLoc> L => L +Int 1 </nextLoc>
 
   // Function Declarations
-  rule <k> fn F:Id(Xs:Params) -> _ B => . ...</k>
+  rule <k> fn F:Id(Xs:Params) -> T:Type B => . ...</k>
        <env> Env => Env[F <- L] </env>
-       <store>... .Map => L |-> func(Xs, B) ...</store>
+       <store>... .Map => L |-> func(T, Xs, B) ...</store>
        <nextLoc> L => L +Int 1 </nextLoc>
 
+  rule <k> cr C:Id(Xs:Params)(Ys:Params) -> T:Type B => . ...</k>
+       <env> Env => Env[C <- L] </env>
+       <store>... .Map => L |-> corodef(T, Xs, Ys, B) ...</store>
+       <nextLoc> L => L +Int 1 </nextLoc>
 
   syntax KItem ::= "execute"  
-  rule <k> execute => main(.Vals); </k>
+  rule <k> execute => call main(.Exps); </k>
        <env> Env </env>
        <genv> .Map => Env </genv>  [structural]
 
-  // Expression Evaluation
+  // Reads are legal, as long as the value is 
   rule <k> X:Id => V ...</k>
        <env>... X |-> L ...</env>
        <store>... L |-> V:Val ...</store>  [lookup]
@@ -59,72 +91,78 @@ module COROLTS-EXECUTE
   rule <k> ++loc(L) => I +Int 1 ...</k>
        <store>... L |-> (I => I +Int 1) ...</store>  [increment]
 
-  rule I1 + I2 => I1 +Int I2
-  rule Str1 + Str2 => Str1 +String Str2
-  rule I1 - I2 => I1 -Int I2
-  rule I1 * I2 => I1 *Int I2
-  rule I1 / I2 => I1 /Int I2 requires I2 =/=K 0
-  rule I1 % I2 => I1 %Int I2 requires I2 =/=K 0
-  rule - I => 0 -Int I
-  rule I1 < I2 => I1 <Int I2
-  rule I1 <= I2 => I1 <=Int I2
-  rule I1 > I2 => I1 >Int I2
-  rule I1 >= I2 => I1 >=Int I2
+  context &(HOLE => lvalue(HOLE))
+  rule <k> &loc(L) => ref(T, L) ...</k> 
+       <borrow>... L |-> (Q => iRef) ...</borrow>   
+       <typeEnv>... L |-> T:Type ...</typeEnv> 
+       when Q =/=K mRef  [reference]
 
-  rule V1:Val == V2:Val => V1 ==K V2
-  rule V1:Val != V2:Val => V1 =/=K V2
+  context &mut(HOLE => lvalue(HOLE))
+  rule <k> &mut loc(L) => mref(T, L) ...</k> 
+       <mutable>... L |-> true ...</mutable>
+       <borrow>... L |-> (Q => mRef) ...</borrow>   
+       <typeEnv>... L |-> T:Type ...</typeEnv>   
+       when Q ==K undefined [reference]
 
-  rule ! T => notBool(T)
-  rule true  && E => E
-  rule false && _ => false
-  rule true  || _ => true
-  rule false || E => E
+  rule <k> *ref(T, L) => V ...</k> 
+       <store>... L |-> V:Val ...</store>   
+       when T ==K typeOf(V) [dereference]
 
-  context new _:Type[HOLE]
-  
-  rule <k> new _:Type[.Vals] => undefined ...</k>
-
-  rule <k> new _:Type[N:Int] => array(L, N) ...</k>
-       <store>... .Map => (L +Int 1) ... (L +Int N) |-> undefined ...</store>
-       <nextLoc> L => L +Int N </nextLoc> 
-    requires N >Int 0
-
-  rule <k> new T:Type[N1:Int, N2:Vals] => array(L, N1) ...</k>
-       <store>... .Map => (L) ... (L +Int N1 -Int 1) |-> new T[N2] ...</store>
-       <nextLoc> L => L +Int N1 </nextLoc> 
-    requires N1 >Int 0
-
-  // Array lookups
-  rule V:Val[N1:Int, N2:Int, Vs:Vals] => V[N1][N2, Vs]
-    [structural, anywhere]
-
-  rule array(L,_)[N:Int] => lookup(L +Int N)
-    [structural, anywhere]
-
-  rule sizeOf(array(_,N)) => N
+  rule <k> *mref(T, L) => V ...</k> 
+       <store>... L |-> V:Val ...</store>   
+       when T ==K typeOf(V) [dereference]
 
   // Function Calls
-  syntax KItem ::=  (Map,K,ControlCellFragment)
+  syntax KItem ::= (Type,Map,K,ControlCellFragment)
 
   // Build function call, switch over evaluation of arguments
-  rule <k> func(Xs,S)(Vs:Vals) ~> K => mkDecls(Xs,Vs) S return; </k>
+  rule <k> call func(T,Xs,S)(Vs:Vals) ~> K => mkDecls(Xs,Vs) S return; </k>
        <control>
-         <fstack> .List => ListItem((Env,K,C)) ...</fstack>
+         <fstack> .List => ListItem((T',Env,K,C)) ...</fstack>
+         <returnType> T' => T </returnType>
          C
        </control>
        <env> Env => GEnv </env>
        <genv> GEnv </genv>
 
+  syntax KItem ::= "wait"
+  rule <stack>... 
+          <k> start corodef(Y:Type, Xs:Params, Ys:Params, B)(Ps:Vals) => coro(Ys, Y, !T +Int 1) ...</k> ...</stack> <genv> GEnv </genv>
+          (.Bag => <stack>...
+                    <k> mkDecls(Xs,Ps) ~> crDecls(Ys) ~> wait ~> B </k>
+                    <env> GEnv </env>
+                    <id> !T +Int 1 </id>
+                    ...</stack>)
+
+  rule <stack>...
+          <k> call coro(Ys, _, T:Int)(Vs:Vals) ...</k> 
+        ...</stack>
+       <stack>...
+           <k> wait => mtDecls(Ys,Vs) ...</k>
+           <id> T </id>
+       ...</stack>
+  
+  rule <stack>...
+          <k> call coro(_, Y, T:Int)(Vs:Vals) => V ...</k> 
+        ...</stack>
+       <stack>...
+           <k> yield V:Val; ~> K => wait ~> K </k>
+           <id> T </id>
+       ...</stack>
+     when typeOf(V) ==K Y
+
   // On return, restore environment and give result to caller
   rule <k> return(V:Val); ~> _ => V ~> K </k>
        <control>
-         <fstack> ListItem((Env,K,C)) => .List ...</fstack>
+         <fstack> ListItem((T',Env,K,C)) => .List ...</fstack>
+         <returnType> T => T' </returnType>
          (_ => C)
        </control>
        <env> _ => Env </env>
+    when typeOf(V) ==K T
 
-  syntax Val ::= "nothing"
-  rule return; => return nothing;
+  syntax Val ::= nothing(Type)
+  rule <k> return; => return nothing(T); ...</k> <returnType> T </returnType> [structural]
 
   rule <k> read() => I ...</k> <input> ListItem(I:Int) => .List ...</input>  [read]
 
@@ -132,7 +170,16 @@ module COROLTS-EXECUTE
   context (HOLE => lvalue(HOLE)) = _
 
   rule <k> loc(L) = V:Val => V ...</k> 
-        <store>... L |-> (_ => V) ...</store> [assignment]
+       <typeEnv>... L |-> T:Type ...</typeEnv>
+       <mutable>... L |-> true ...</mutable>
+       <store>... L |-> (_ => V) ...</store> 
+       when T ==K typeOf(V) [assignment]
+
+  rule <k> loc(L) = V:Val => V ...</k> 
+       <typeEnv>... L |-> T:Type ...</typeEnv>
+       <store>... L |-> (undefined => V) ...</store> 
+       when T ==K typeOf(V) [assignment]
+
 
   // Scoping (restore's environment after call)
   rule {} => .  [structural]
@@ -141,22 +188,26 @@ module COROLTS-EXECUTE
   rule S1:Stmt S2:Stmt => S1 ~> S2  [structural]
   rule _:Val; => .
 
-  // Control Flow
-  rule if true S else _ => S
-  rule if false _ else S => S
-  rule while E S => if E {S while E S}  [structural]
 
-  rule <k> println!(V:Val, Es => Es); ...</k> <output>... .List => ListItem(V) </output>
-    [print]
-  rule println!(.Vals); => .  [structural]
+  rule <k> println!(V:Val, Es => Es); ...</k> 
+       <output>... .List => ListItem(V) </output> 
+       when typeOf(V) ==K int orBool typeOf(V) ==K string [print]
+
+  rule <k> println!(.Vals); => . ...</k> 
+       <output>... .List => ListItem("\n") </output> [print]
 
   // Helper functions
   syntax Stmt ::= mkDecls(Params,Vals)  [function]
   rule mkDecls((X:Id : T:Type, Xs:Params), (V:Val, Vs:Vals)) => let X : T = V; mkDecls(Xs,Vs)
   rule mkDecls(.Params,.Vals) => {}
 
-  syntax Exp ::= lookup(Int)
-  rule <k> lookup(L) => V ...</k> <store>... L |-> V:Val ...</store>  [lookup]
+  syntax Stmt ::= crDecls(Params)  [function]
+  rule crDecls(X:Id : T:Type, Xs:Params) => let mut X : T; crDecls(Xs)
+  rule crDecls(.Params) => {}
+
+  syntax Stmt ::= mtDecls(Params,Vals)  [function]
+  rule mtDecls((X:Id : T:Type, Xs:Params), (V:Val, Vs:Vals)) => X = V; mtDecls(Xs,Vs)
+  rule mtDecls(.Params,.Vals) => {}
 
   syntax KItem ::= setEnv(Map)
   rule <k> setEnv(Env) => . ...</k> <env> _ => Env </env>  [structural]
@@ -166,18 +217,36 @@ module COROLTS-EXECUTE
   syntax Exp ::= lvalue(K)
   syntax Val ::= loc(Int)
 
-  rule <k> lvalue(X:Id => loc(L)) ...</k> <env>... X |-> L:Int ...</env>
-    [structural]
+  rule <k> lvalue(X:Id => loc(L)) ...</k> 
+       <env>... X |-> L:Int ...</env>           
+       <borrow>... L |-> Q ...</borrow>
+       when Q =/=K mRef                [structural]
 
 
-  context lvalue(_::Exp[HOLE::Exps])
-  context lvalue(HOLE::Exp[_::Exps])
-
-  rule lvalue(lookup(L:Int) => loc(L))  [structural]
+  rule <k> lvalue(*X:Id => loc(L2)) ...</k> 
+       <env>... X |-> L:Int ...</env> 
+       <store>... L |-> mref(_, L2) ...</store>  
+       <borrow>... L2 |-> mRef </borrow>  [structural]
 
   // Map Operations
   syntax Map ::= Int "..." Int "|->" K [function]
   rule N...M |-> _ => .Map  requires N >Int M
   rule N...M |-> K => N |-> K (N +Int 1)...M |-> K  requires N <=Int M
 
+  // Type of a value.
+  syntax Type ::= typeOf(K)  [function]
+  rule typeOf(_:Int) => int
+  rule typeOf(_:Bool) => bool
+  rule typeOf(_:String) => string
+  rule typeOf(func(T,Ps,_)) => fn getTypes(Ps) -> T
+  rule typeOf(corodef(T,Xs,Ys, _)) => cr getTypes(Xs) -> getTypes(Ys) -> T
+  rule typeOf(coro(Xs, T, _)) => ct getTypes(Xs) ->> T
+  rule typeOf(ref(T, _)) => &T
+  rule typeOf(mref(T, _)) => &mut T
+  rule typeOf(nothing(T)) => T
+
+  syntax Types ::= getTypes(Params)  [function]
+  rule getTypes(_:Id : T:Type) => T, .Types   // I would like to not use .Types
+  rule getTypes(_:Id : T:Type, P, Ps) => T, getTypes(P,Ps)
+  rule getTypes(.Params) => void, .Types
 endmodule

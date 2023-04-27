@@ -1,0 +1,25 @@
+cr brown(x: string)(f: int) -> int {
+    println!(x);
+    while true {
+        yield f + 10;
+    }
+}
+
+
+cr green(x: int)(f: int) -> int {
+    while true {
+        yield f + 20;
+    }
+}
+
+fn main() {
+    let mut x: int = 10;
+    let mut z: ct (int) ->> int = start brown("hello");
+    if x < 23 {
+        z = start green(x);
+    }
+    for (let mut i: int = 0; i < 10; i = i + 1) {
+        println!(call z(i));
+    }
+}
+

@@ -1,18 +1,14 @@
 all: kompile/.exec kompile/.type
 
-common = corolts-syntax.k
+common = corolts-syntax.k corolts-arith.k corolts-execute.k  
 .PHONY: clean run exec type
 
-kompile/.exec: corolts-execute.k $(common)
-	kompile corolts-execute.k --syntax-module COROLTS-SYNTAX -d kompile/exec
+kompile/.exec: corolts.k $(common)
+	kompile corolts.k -d kompile/exec
 	echo "kompiled" > kompile/.exec
 
-kompile/.type: corolts-typing.k $(common)
-	kompile corolts-typing.k --syntax-module COROLTS-SYNTAX -d kompile/type
-	echo "kompiled" > kompile/.type
-
-%.ct: tests/%.ct kompile/.type
-	krun $< -d kompile/type
+%.ct: tests/%.ct kompile/.exec
+	krun $< -d kompile/exec
 
 clean: 
 	rm -rf kompile/*
