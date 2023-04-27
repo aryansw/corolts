@@ -7,7 +7,7 @@ module COROLTS-EXECUTE
   syntax Val ::= Int | Bool | String
               |  func(Type, Params, Block) // Parameters and body
               |  corodef(Type, Params, Params, Block) // Coroutine definition
-              |  coro(Type, Int) // Coroutine Instance (type and id)
+              |  coro(Params, Type, Int) // Coroutine Instance (type and id)
               |  ref(Type, Int)
               |  mref(Type, Int)
 
@@ -125,6 +125,32 @@ module COROLTS-EXECUTE
        <env> Env => GEnv </env>
        <genv> GEnv </genv>
 
+  syntax KItem ::= "wait"
+  rule <stack>... 
+          <k> start corodef(Y:Type, Xs:Params, Ys:Params, B)(Ps:Vals) => coro(Ys, Y, !T +Int 1) ...</k> ...</stack> <genv> GEnv </genv>
+          (.Bag => <stack>...
+                    <k> mkDecls(Xs,Ps) ~> crDecls(Ys) ~> wait ~> B </k>
+                    <env> GEnv </env>
+                    <id> !T +Int 1 </id>
+                    ...</stack>)
+
+  rule <stack>...
+          <k> call coro(Ys, _, T:Int)(Vs:Vals) ...</k> 
+        ...</stack>
+       <stack>...
+           <k> wait => mtDecls(Ys,Vs) ...</k>
+           <id> T </id>
+       ...</stack>
+  
+  rule <stack>...
+          <k> call coro(_, Y, T:Int)(Vs:Vals) => V ...</k> 
+        ...</stack>
+       <stack>...
+           <k> yield V:Val; ~> K => wait ~> K </k>
+           <id> T </id>
+       ...</stack>
+     when typeOf(V) ==K Y
+
   // On return, restore environment and give result to caller
   rule <k> return(V:Val); ~> _ => V ~> K </k>
        <control>
@@ -175,6 +201,13 @@ module COROLTS-EXECUTE
   rule mkDecls((X:Id : T:Type, Xs:Params), (V:Val, Vs:Vals)) => let X : T = V; mkDecls(Xs,Vs)
   rule mkDecls(.Params,.Vals) => {}
 
+  syntax Stmt ::= crDecls(Params)  [function]
+  rule crDecls(X:Id : T:Type, Xs:Params) => let mut X : T; crDecls(Xs)
+  rule crDecls(.Params) => {}
+
+  syntax Stmt ::= mtDecls(Params,Vals)  [function]
+  rule mtDecls((X:Id : T:Type, Xs:Params), (V:Val, Vs:Vals)) => X = V; mtDecls(Xs,Vs)
+  rule mtDecls(.Params,.Vals) => {}
 
   syntax KItem ::= setEnv(Map)
   rule <k> setEnv(Env) => . ...</k> <env> _ => Env </env>  [structural]
@@ -207,7 +240,7 @@ module COROLTS-EXECUTE
   rule typeOf(_:String) => string
   rule typeOf(func(T,Ps,_)) => fn getTypes(Ps) -> T
   rule typeOf(corodef(T,Xs,Ys, _)) => cr getTypes(Xs) -> getTypes(Ys) -> T
-  rule typeOf(coro(T, _)) => T
+  rule typeOf(coro(Xs, T, _)) => ct getTypes(Xs) ->> T
   rule typeOf(ref(T, _)) => &T
   rule typeOf(mref(T, _)) => &mut T
   rule typeOf(nothing(T)) => T

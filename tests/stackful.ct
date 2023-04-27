@@ -1,0 +1,18 @@
+fn green(q: int) -> int {
+    yield 15;
+    yield 22;
+    yield 100;
+    return 10;
+}
+
+cr brown(q: string)() -> int {
+    call green(10);
+}
+
+fn main() {
+    let mut x: int = 10;
+    let z: ct void ->> int = start brown("Hello");
+    for (let mut i: int = 0; i < 10; i = i + 1) {
+        println!(call z());
+    }
+}

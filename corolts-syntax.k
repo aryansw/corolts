@@ -10,7 +10,7 @@ module COROLTS-SYNTAX
                 | "(" Type ")"             [bracket]
                 > "fn" Types "->" Type
                 > "cr" Types "->" Types "->" Type
-                > "coro" Types "->>" Type
+                > "ct" Types "->>" Type
 
   syntax Types ::= List{Type,","}          [klabel(exps)]
   
@@ -38,7 +38,6 @@ module COROLTS-SYNTAX
                | "++" Exp
                > "call" Exp "(" Exps ")"        [strict]
                > "start" Exp "(" Exps ")"       [strict]
-               > "yield" Exp "(" Exps ")"       [strict]
                | "-" Exp                 [strict]
                | "sizeOf" "(" Exp ")"    [strict]
                | "read" "(" ")"
@@ -75,6 +74,7 @@ module COROLTS-SYNTAX
                 | "while" Exp Block                [strict]
                 | "for" "(" Stmt Exp ";" Exp ")" Block     [macro]
                 | "return" Exp ";"                         [strict]
+                | "yield" Exp ";"                          [strict]
                 | "return" ";"
                 | "println!" "(" Exps ")" ";"                 [strict]
   
